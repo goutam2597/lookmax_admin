@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +23,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loading = true;
   String? _error;
 
+  // Live presence
+  StreamSubscription<QuerySnapshot>? _presenceSub;
+  Timer? _presenceTimer;
+  List<Map<String, dynamic>> _liveUsers = [];
+
   static const _gold = Color(0xFFD4AF37);
   static const _bg = Color(0xFF0E0E0E);
   static const _card = Color(0xFF161616);
@@ -30,6 +37,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _load();
+    _initPresence();
+  }
+
+  @override
+  void dispose() {
+    _presenceSub?.cancel();
+    _presenceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initPresence() {
+    _presenceSub?.cancel();
+    final cutoff = Timestamp.fromDate(
+      DateTime.now().subtract(const Duration(minutes: 10)),
+    );
+    _presenceSub = _db
+        .collection('users')
+        .where('lastSeen', isGreaterThan: cutoff)
+        .snapshots()
+        .listen(
+      (snap) {
+        final now = DateTime.now();
+        final threshold = now.subtract(const Duration(minutes: 10));
+        if (!mounted) return;
+        setState(() {
+          _liveUsers = snap.docs.where((d) {
+            final ts = (d.data() as Map)['lastSeen'] as Timestamp?;
+            return ts != null && ts.toDate().isAfter(threshold);
+          }).map((d) => {'uid': d.id, ...(d.data() as Map<String, dynamic>)}).toList();
+        });
+      },
+      onError: (e) => debugPrint('[Presence] Firestore error: $e'),
+    );
+    // Re-init every 5 min to keep the threshold fresh
+    _presenceTimer?.cancel();
+    _presenceTimer = Timer(const Duration(minutes: 5), _initPresence);
   }
 
   Future<void> _load() async {
@@ -139,6 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
+                  SliverToBoxAdapter(child: _liveUsersCard()),
                   SliverToBoxAdapter(child: _heroCard()),
                   SliverToBoxAdapter(child: _activeRow()),
                   SliverToBoxAdapter(child: _breakdownRow()),
@@ -190,6 +234,152 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ),
   );
+
+  // ── Live users card ───────────────────────────────────────────────────────
+
+  Widget _liveUsersCard() {
+    final count = _liveUsers.length;
+    final byCountry = <String, int>{};
+    for (final u in _liveUsers) {
+      final c = (u['country'] as String? ?? '').isNotEmpty
+          ? u['country'] as String
+          : 'Unknown';
+      byCountry[c] = (byCountry[c] ?? 0) + 1;
+    }
+    final sorted = byCountry.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(5).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: count > 0
+                ? Colors.green.withValues(alpha: 0.35)
+                : Colors.white12,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Pulsing green dot
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: count > 0 ? Colors.green : Colors.white24,
+                    shape: BoxShape.circle,
+                    boxShadow: count > 0
+                        ? [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.5),
+                              blurRadius: 6,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Live Now',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Last 10 min',
+                  style: const TextStyle(color: Colors.white24, fontSize: 10),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$count',
+                  style: GoogleFonts.poppins(
+                    color: count > 0 ? Colors.green : Colors.white38,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    count == 1 ? 'user online' : 'users online',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            if (top.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white10, height: 1),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: top.map((e) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          size: 10,
+                          color: Colors.green,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${e.key}  ${e.value}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ] else if (count == 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'No active users right now',
+                  style: const TextStyle(color: Colors.white24, fontSize: 11),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   // ── Hero card ─────────────────────────────────────────────────────────────
 

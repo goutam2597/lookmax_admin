@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../services/api_service.dart';
 
@@ -21,6 +25,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   String _filter = 'all';
   bool _loading = true;
   bool _loadingMore = false;
+  bool _isExporting = false;
   String? _error;
 
   final List<Map<String, dynamic>> _registrations = [];
@@ -273,12 +278,122 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  String _csvRow(List<String> vals) =>
+      vals.map((v) => '"${v.replaceAll('"', '""')}"').join(',');
+
+  Future<void> _exportCsv() async {
+    if (_isExporting) return;
+    final items = _items;
+    if (items.isEmpty) return;
+    setState(() => _isExporting = true);
+    try {
+      final buf = StringBuffer();
+      buf.writeln(
+        'Type,Name / UID,Email,Platform,Provider / Store,Product,Price,Status,Date',
+      );
+      for (final item in items) {
+        final type = item['_type'] as String? ?? '';
+        final date = _fmtDate(item['_ts']);
+        switch (type) {
+          case 'registration_online':
+            buf.writeln(
+              _csvRow([
+                'Online User',
+                item['name'] as String? ?? '',
+                item['email'] as String? ?? '',
+                item['platform'] as String? ?? '',
+                item['authProvider'] as String? ?? '',
+                '',
+                '',
+                '',
+                date,
+              ]),
+            );
+          case 'registration_guest':
+            buf.writeln(
+              _csvRow([
+                'Guest',
+                item['name'] as String? ?? '',
+                '',
+                item['platform'] as String? ?? '',
+                '',
+                '',
+                '',
+                '',
+                date,
+              ]),
+            );
+          case 'subscription':
+            buf.writeln(
+              _csvRow([
+                'Subscription',
+                item['uid'] as String? ?? '',
+                '',
+                '',
+                item['store'] as String? ?? '',
+                item['product_id'] as String? ?? '',
+                item['price']?.toString() ?? '',
+                item['status'] as String? ?? '',
+                date,
+              ]),
+            );
+          default:
+            buf.writeln(
+              _csvRow([
+                'Notification',
+                item['uid'] as String? ?? '',
+                '',
+                item['platform'] as String? ?? '',
+                '',
+                '',
+                '',
+                '',
+                date,
+              ]),
+            );
+        }
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/lookmax_activity.csv');
+      await file.writeAsString(buf.toString());
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'LookMaxing Activity Export',
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
+      floatingActionButton: _loading
+          ? null
+          : FloatingActionButton.small(
+              backgroundColor: _gold,
+              onPressed: _isExporting ? null : _exportCsv,
+              tooltip: 'Export CSV',
+              child: _isExporting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.black,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.download_rounded,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+            ),
       body: NestedScrollView(
         headerSliverBuilder: (_, _) => [],
         body: Column(
