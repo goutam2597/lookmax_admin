@@ -9,6 +9,7 @@ import 'providers/admin_auth_provider.dart';
 import 'screens/activity_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/purchases_screen.dart';
 import 'screens/users_screen.dart';
 
@@ -95,6 +96,7 @@ class _MainShellState extends State<_MainShell> {
     UsersScreen(),
     PurchasesScreen(),
     ActivityScreen(),
+    NotificationsScreen(),
   ];
 
   @override
@@ -113,7 +115,54 @@ class _MainShellState extends State<_MainShell> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white54),
-            onPressed: () => auth.signOut(),
+            tooltip: 'Logout',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: const Color(0xFF181818),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: const BorderSide(color: Color(0xFF2C2C2C)),
+                  ),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  content: const Text(
+                    'Are you sure you want to logout from the admin panel?',
+                    style: TextStyle(color: Colors.white60, fontSize: 14),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD4AF37),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text(
+                        'Logout',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) auth.signOut();
+            },
           ),
         ],
       ),
@@ -138,7 +187,7 @@ class _BottomNav extends StatelessWidget {
     (
       icon: Icons.dashboard_outlined,
       activeIcon: Icons.dashboard_rounded,
-      label: 'Dashboard',
+      label: 'Stats',
     ),
     (
       icon: Icons.people_outline,
@@ -154,6 +203,11 @@ class _BottomNav extends StatelessWidget {
       icon: Icons.timeline_outlined,
       activeIcon: Icons.timeline_rounded,
       label: 'Activity',
+    ),
+    (
+      icon: Icons.notifications_outlined,
+      activeIcon: Icons.notifications_rounded,
+      label: 'Push',
     ),
   ];
 

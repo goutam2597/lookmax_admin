@@ -110,8 +110,22 @@ class _UsersScreenState extends State<UsersScreen> {
         final name = (u['displayName'] as String? ?? u['name'] as String? ?? '')
             .toLowerCase();
         return email.contains(q) || name.contains(q);
-      }).toList();
+      }).toList()
+        ..sort((a, b) => _userTime(b).compareTo(_userTime(a)));
     });
+  }
+
+  DateTime _userTime(Map<String, dynamic> u) {
+    if (u['type'] == 'online') {
+      final ts = u['lastSeen'];
+      if (ts is Timestamp) return ts.toDate();
+      final ca = u['createdAt'];
+      if (ca is Timestamp) return ca.toDate();
+    } else {
+      final s = u['last_seen'] as String?;
+      if (s != null) try { return DateTime.parse(s.replaceFirst(' ', 'T')); } catch (_) {}
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   int get _onlineCount => _all.where((u) => u['type'] == 'online').length;
@@ -262,6 +276,126 @@ class _UsersScreenState extends State<UsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('User ${action}d'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteOnlineUser(String uid, String email) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF181818),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete User',
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Permanently delete "$email"?\nThis cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ApiService.delete('/api/delete_user?uid=$uid');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteGuestUser(Map<String, dynamic> u) async {
+    final id = u['id'];
+    final name = u['name'] as String? ?? 'this guest';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF181818),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Remove Guest',
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Remove "$name" from guest records?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ApiService.delete('/api/offline_users?id=$id');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Guest removed'),
             backgroundColor: Colors.green,
           ),
         );
@@ -686,6 +820,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   if (val == 'password') _changePassword(uid, email);
                   if (val == 'disable') _toggleDisable(uid, false);
                   if (val == 'enable') _toggleDisable(uid, true);
+                  if (val == 'delete') _deleteOnlineUser(uid, email);
                 },
                 itemBuilder: (_) => [
                   _menuItem(
@@ -705,6 +840,12 @@ class _UsersScreenState extends State<UsersScreen> {
                     Icons.check_circle_outline_rounded,
                     'Enable',
                     Colors.green,
+                  ),
+                  _menuItem(
+                    'delete',
+                    Icons.delete_forever_rounded,
+                    'Delete User',
+                    Colors.red,
                   ),
                 ],
               ),
@@ -811,6 +952,29 @@ class _UsersScreenState extends State<UsersScreen> {
                     ),
                   ],
                 ),
+              ),
+              // Menu
+              PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: Colors.white24,
+                  size: 20,
+                ),
+                color: _card2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: (val) {
+                  if (val == 'delete') _deleteGuestUser(u);
+                },
+                itemBuilder: (_) => [
+                  _menuItem(
+                    'delete',
+                    Icons.delete_forever_rounded,
+                    'Remove Guest',
+                    Colors.red,
+                  ),
+                ],
               ),
             ],
           ),

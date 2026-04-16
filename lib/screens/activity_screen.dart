@@ -41,7 +41,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
     ('all', 'All', Colors.white70, Icons.grid_view_rounded),
     ('registration', 'Registrations', Colors.green, Icons.person_add_rounded),
     ('subscription', 'Subscriptions', _gold, Icons.card_membership_rounded),
-    ('notification', 'Notifications', Colors.blueAccent, Icons.notifications_rounded),
+    (
+      'notification',
+      'Notifications',
+      Colors.blueAccent,
+      Icons.notifications_rounded,
+    ),
   ];
 
   @override
@@ -93,7 +98,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
         '_type': 'registration_online',
         '_ts': data['createdAt'],
         'uid': d.id,
-        'name': data['displayName'] ??
+        'name':
+            data['displayName'] ??
             (data['email'] as String?)?.split('@').first ??
             '—',
         'email': data['email'] ?? '',
@@ -101,7 +107,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
         'platform': (data['platform'] as String? ?? '').toUpperCase(),
       };
     }).toList();
-    if (reset) _registrations.removeWhere((e) => e['_type'] == 'registration_online');
+    if (reset) {
+      _registrations.removeWhere((e) => e['_type'] == 'registration_online');
+    }
     _registrations.addAll(batch);
     _hasMoreOnline = snap.docs.length == 30;
     if (snap.docs.isNotEmpty) _lastOnlineDoc = snap.docs.last;
@@ -112,15 +120,21 @@ class _ActivityScreenState extends State<ActivityScreen> {
     try {
       final res = await ApiService.get('/api/offline_users?page=$_guestPage');
       final rows = (res['users'] as List? ?? []);
-      final batch = rows.map((g) => <String, dynamic>{
-            '_type': 'registration_guest',
-            '_ts': g['first_seen'],
-            'name': g['name'] ?? 'Unknown',
-            'platform': (g['platform'] as String? ?? '').toUpperCase(),
-            'gender': g['gender'] ?? '',
-            'device_id': (g['device_id'] as String? ?? ''),
-          }).toList();
-      if (reset) _registrations.removeWhere((e) => e['_type'] == 'registration_guest');
+      final batch = rows
+          .map(
+            (g) => <String, dynamic>{
+              '_type': 'registration_guest',
+              '_ts': g['first_seen'],
+              'name': g['name'] ?? 'Unknown',
+              'platform': (g['platform'] as String? ?? '').toUpperCase(),
+              'gender': g['gender'] ?? '',
+              'device_id': (g['device_id'] as String? ?? ''),
+            },
+          )
+          .toList();
+      if (reset) {
+        _registrations.removeWhere((e) => e['_type'] == 'registration_guest');
+      }
       _registrations.addAll(batch);
       _hasMoreGuest = rows.length == 50;
       if (!reset) _guestPage++;
@@ -132,17 +146,21 @@ class _ActivityScreenState extends State<ActivityScreen> {
     try {
       final res = await ApiService.get('/api/purchases?page=$_subPage');
       final rows = (res['purchases'] as List? ?? []);
-      final batch = rows.map((r) => <String, dynamic>{
-            '_type': 'subscription',
-            '_ts': r['purchased_at'],
-            'uid': r['uid'] ?? '',
-            'product_id': r['product_id'] ?? '',
-            'purchase_type': r['purchase_type'] ?? '',
-            'price': r['price'],
-            'currency': r['currency'] ?? '',
-            'store': r['store'] ?? '',
-            'status': r['status'] ?? '',
-          }).toList();
+      final batch = rows
+          .map(
+            (r) => <String, dynamic>{
+              '_type': 'subscription',
+              '_ts': r['purchased_at'],
+              'uid': r['uid'] ?? '',
+              'product_id': r['product_id'] ?? '',
+              'purchase_type': r['purchase_type'] ?? '',
+              'price': r['price'],
+              'currency': r['currency'] ?? '',
+              'store': r['store'] ?? '',
+              'status': r['status'] ?? '',
+            },
+          )
+          .toList();
       if (reset) _subscriptions.clear();
       _subscriptions.addAll(batch);
       _hasMoreSub = rows.length == 50;
@@ -155,12 +173,16 @@ class _ActivityScreenState extends State<ActivityScreen> {
     try {
       final res = await ApiService.get('/api/fcm_token?page=$_notifPage');
       final rows = (res['tokens'] as List? ?? []);
-      final batch = rows.map((r) => <String, dynamic>{
-            '_type': 'notification',
-            '_ts': r['updated_at'],
-            'uid': r['uid'] ?? '',
-            'platform': (r['platform'] as String? ?? '').toUpperCase(),
-          }).toList();
+      final batch = rows
+          .map(
+            (r) => <String, dynamic>{
+              '_type': 'notification',
+              '_ts': r['updated_at'],
+              'uid': r['uid'] ?? '',
+              'platform': (r['platform'] as String? ?? '').toUpperCase(),
+            },
+          )
+          .toList();
       if (reset) _notifications.clear();
       _notifications.addAll(batch);
       _hasMoreNotif = rows.length == 50;
@@ -258,28 +280,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     return Scaffold(
       backgroundColor: _bg,
       body: NestedScrollView(
-        headerSliverBuilder: (_, _) => [
-          SliverAppBar(
-            backgroundColor: _bg,
-            surfaceTintColor: Colors.transparent,
-            title: Text(
-              '✦ Activity',
-              style: GoogleFonts.poppins(
-                color: _gold,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),
-                onPressed: _loading ? null : _loadInitial,
-              ),
-            ],
-            floating: true,
-            snap: true,
-          ),
-        ],
+        headerSliverBuilder: (_, _) => [],
         body: Column(
           children: [
             _buildFilterBar(),
@@ -351,7 +352,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 40),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.redAccent,
+              size: 40,
+            ),
             const SizedBox(height: 12),
             Text(
               _error!,
@@ -359,7 +364,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            TextButton(onPressed: _loadInitial, child: const Text('Retry', style: TextStyle(color: _gold))),
+            TextButton(
+              onPressed: _loadInitial,
+              child: const Text('Retry', style: TextStyle(color: _gold)),
+            ),
           ],
         ),
       );
@@ -438,9 +446,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: color.withValues(alpha: 0.15),
-                    border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
                     boxShadow: [
-                      BoxShadow(color: color.withValues(alpha: 0.18), blurRadius: 8),
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.18),
+                        blurRadius: 8,
+                      ),
                     ],
                   ),
                   child: Icon(icon, color: color, size: 14),
@@ -463,14 +477,26 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   decoration: BoxDecoration(
                     color: _card,
                     border: Border(
-                      left: BorderSide(color: color.withValues(alpha: 0.6), width: 2.5),
-                      top: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
-                      right: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
-                      bottom: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+                      left: BorderSide(
+                        color: color.withValues(alpha: 0.6),
+                        width: 2.5,
+                      ),
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
+                      right: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
+                      bottom: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     child: switch (type) {
                       'registration_online' => _regOnlineCard(item, color),
                       'registration_guest' => _regGuestCard(item, color),
@@ -557,7 +583,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final platform = item['platform'] as String? ?? '';
     final gender = item['gender'] as String? ?? '';
     final deviceId = item['device_id'] as String? ?? '';
-    final shortId = deviceId.length > 12 ? '${deviceId.substring(0, 12)}…' : deviceId;
+    final shortId = deviceId.length > 12
+        ? '${deviceId.substring(0, 12)}…'
+        : deviceId;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,11 +622,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   if (shortId.isNotEmpty)
                     Row(
                       children: [
-                        const Icon(Icons.phone_android_rounded, size: 10, color: Colors.white24),
+                        const Icon(
+                          Icons.phone_android_rounded,
+                          size: 10,
+                          color: Colors.white24,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           shortId,
-                          style: const TextStyle(color: Colors.white30, fontSize: 9),
+                          style: const TextStyle(
+                            color: Colors.white30,
+                            fontSize: 9,
+                          ),
                         ),
                       ],
                     ),
@@ -629,7 +664,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final status = item['status'] as String? ?? '';
     final uid = item['uid'] as String? ?? '';
     final shortUid = uid.length > 12 ? '${uid.substring(0, 12)}…' : uid;
-    final priceStr = price != null ? '$currency ${price.toStringAsFixed(2)}' : '—';
+    final priceStr = price != null
+        ? '$currency ${price.toStringAsFixed(2)}'
+        : '—';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,10 +697,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     _pill(purchaseType, color),
                     const SizedBox(width: 6),
                   ],
-                  _pill(
-                    priceStr,
-                    Colors.green,
-                  ),
+                  _pill(priceStr, Colors.green),
                   const SizedBox(width: 6),
                   if (store.isNotEmpty)
                     _pill(
@@ -681,11 +715,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   ),
                   if (shortUid.isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    const Icon(Icons.fingerprint_rounded, size: 10, color: Colors.white24),
+                    const Icon(
+                      Icons.fingerprint_rounded,
+                      size: 10,
+                      color: Colors.white24,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       shortUid,
-                      style: const TextStyle(color: Colors.white30, fontSize: 9),
+                      style: const TextStyle(
+                        color: Colors.white30,
+                        fontSize: 9,
+                      ),
                     ),
                   ],
                 ],
@@ -736,11 +777,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   if (shortUid.isNotEmpty)
                     Row(
                       children: [
-                        const Icon(Icons.fingerprint_rounded, size: 10, color: Colors.white24),
+                        const Icon(
+                          Icons.fingerprint_rounded,
+                          size: 10,
+                          color: Colors.white24,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           shortUid,
-                          style: const TextStyle(color: Colors.white38, fontSize: 9),
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 9,
+                          ),
                         ),
                       ],
                     ),
@@ -795,7 +843,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
       child: OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _gold),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         ),
         icon: _loadingMore
@@ -807,7 +857,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
             : const Icon(Icons.expand_more_rounded, color: _gold, size: 18),
         label: Text(
           _loadingMore ? 'Loading…' : 'Load More',
-          style: const TextStyle(color: _gold, fontSize: 13, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: _gold,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         onPressed: _loadingMore ? null : _loadMore,
       ),
